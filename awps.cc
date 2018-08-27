@@ -5,65 +5,160 @@
 #include <sys/time.h>
 #include <string>
 #include <cstdlib>
+#include <signal.h>
 #include "mcp3008Reading.h"
+
 //#include "archives.h"
 
+#define MOISTURECHANNEL 5
+#define TEMPERATURECHANNEL 6
+#define MOISTURELIMIT 300
+#define DRYLIMIT 500
+#define RELAYPIN 2
+#define GLEDPIN 3
+#define YLEDPIN 4
+#define RLEDPIN 5
+#define WATERTIME 20
+
+enum state {
+	wet, moist, dry
+};
+
 using namespace std;
+static volatile int keepRunning = 1;
+void initGPIO();
 
-int main(int argc, char* argv[]){
-int cycle = 3600;
-
-if(argc == 2){
-	cycle = atoi(argv[1]);
+void intHandler(int signum) {
+	cout << "Caught signal " << signum << endl;
+	cout << "Shutting down the AWPS software" << endl;
+	initGPIO();
+	exit(signum);
 }
 
-//string filename("/home/pi/Documents/moisture_sensor_TML/mcp.dat");
-int tab[3];
+void initGPIO(){
+	pinMode(RELAYPIN, OUTPUT);      //Relay Control pin.
+        pinMode(RLEDPIN, OUTPUT);      //Relay Control pin.
+        pinMode(YLEDPIN, OUTPUT);      //Relay Control pin.
+        pinMode(GLEDPIN, OUTPUT);      //Relay Control pin.
+        digitalWrite(RELAYPIN, LOW);
+        digitalWrite(GLEDPIN, LOW);
+        digitalWrite(YLEDPIN, LOW);
+        digitalWrite(RLEDPIN, LOW);
+}
 
-//Setup WiringPi in order to use the library wiringPi
+int init() {
+	//Dealing signal like ^C
+	signal(SIGINT, intHandler);
+	//Defining port and loop period.
+	wiringPiSetup();	//Initialise the wiringPi Library functions.
+	initGPIO();
+	initMCP3008();
+	return 1;
+}
 
-wiringPiSetup();
-//pinMode(0,OUTPUT);	//
-pinMode(2,OUTPUT);	//Relay control
+int checkstate() {
+	cout << "checking state" << endl;
+	int x = readMCP3008(MOISTURECHANNEL);
+	cout << "Sensor value is : " << x << endl;
+	if (x <= MOISTURELIMIT) {
+		return wet;
+	} else if (x > MOISTURELIMIT && x <= DRYLIMIT) {
+		return moist;
+	} else if (x > DRYLIMIT) {
+		return dry;
+	}
+	else return -1;
+}
 
-const int moistureChannel = 5;
-const int moistureLimit = 500;
+void activateRelay(int sec) {
+	cout << "activating relay" << endl;
+	digitalWrite(RELAYPIN, HIGH);
+	struct timeval t;
+	t.tv_sec = sec;
+	t.tv_usec = 0;
+	select(0, NULL, NULL, NULL, &t);
+	digitalWrite(RELAYPIN, LOW);
+}
 
+void work(int st) {
 
-//Initialisation of the Virtual Pins
-initMCP3008();
+	switch (st) {
+	case wet: {
+		//Light the Green Led
+		digitalWrite(GLEDPIN, HIGH);
+		digitalWrite(YLEDPIN, LOW);
+		digitalWrite(RLEDPIN, LOW);
+		break;
+	}
+	case moist: {
+		//Light the Yellow Led
+		digitalWrite(GLEDPIN, LOW);
+		digitalWrite(YLEDPIN, HIGH);
+		digitalWrite(RLEDPIN, LOW);
+		break;
+	}
+	case dry: {
+		//Light the Red Led
+		digitalWrite(GLEDPIN, LOW);
+		digitalWrite(YLEDPIN, LOW);
+		digitalWrite(RLEDPIN, HIGH);
+		// Use the pump for 20 s
+		activateRelay(WATERTIME);
+		break;
+	}
+	default:
+		cout << "ERROR switch reached default case " << endl;
+	}
+}
 
-while (1){
-	int x = readMCP3008(moistureChannel);
-	//double temper = analogRead(BASE+6);
+void log(int state, int temper) {
+	//string filename("~/Documents/moisture_sensor_TML/mcp.dat");
+	//Tab to log in a file
+
+	int tab[3];
+	struct timeval tod;
+	gettimeofday(&tod, NULL);
+	tab[0] = tod.tv_sec;
+	tab[1] = state;
+	tab[2] = temper;
+	cout << "time : " << tab[0] << ", state is: " << tab[1] << ", and T° is : " << tab[2] << " °C" << endl;
+	//      saveInFile(filename, tab,(unsigned int)( sizeof(tab)/sizeof(*tab) ));
+}
+
+void hibernate(int s) {
+	struct timeval t;
+	t.tv_sec = s;
+	t.tv_usec = 0;
+	select(0, NULL, NULL, NULL, &t);
+}
+
+int checkTemperature() {
+	double t = readMCP3008(TEMPERATURECHANNEL);
 	//cout << "temper = " << temper << endl;
 	//temper = temper / 1024 * 3.3 * 10;
-	
-	struct timeval tod;
-	gettimeofday(&tod,NULL);
-	tab[0] = tod.tv_sec;
-
-	if (x < moistureLimit){ // The soil is moist enough
-	digitalWrite (2,LOW);
-	}
-	else{
-	digitalWrite (2,HIGH);	//We activate the pump
-	}
-
-	tab[1] = x;
-	tab[2] = 0;
-//	tab[2] = (int)temper;
-        cout << "time : " << tab[0] << ", Value is: " << tab[1] << ", and T° is : " << tab[2]  << " °C"<< endl;
-	
-//	saveInFile(filename, tab,(unsigned int)( sizeof(tab)/sizeof(*tab) ));
-
-	struct timeval t;
-	t.tv_sec = cycle;
-	t.tv_usec=0;
-	select(0,NULL,NULL,NULL,&t);
-
+	return t;
 }
-cout << "returning 0 " << endl;
-return 0;
+
+int main(int argc, char* argv[]) {
+	int cycle(0);
+	if (argc == 2) {
+		cycle = atoi(argv[1]);
+	} else
+		cycle = 3600;
+
+	if (init()) {
+		while (keepRunning) {
+			int st = checkstate();
+			if (st<0)
+			cout << "ERROR on the state process" << endl;
+			int temper = checkTemperature();
+			work(st);
+			log(st,temper);
+			hibernate(cycle);
+		}
+	}
+
+	cout << "End of program ! " << endl;
+	return 0;
 
 }
