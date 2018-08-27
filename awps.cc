@@ -1,32 +1,19 @@
+#include "awps.h"
 #include <wiringPi.h>
 #include <iostream>
-#include <unistd.h>
-#include <sys/select.h>
-#include <sys/time.h>
+#include <unistd.h>	//select()
+//#include <sys/select.h>
+#include <sys/time.h>	//gettimeofday()
 #include <string>
-#include <cstdlib>
-#include <signal.h>
+#include <signal.h>	//Unix signals
 #include "mcp3008Reading.h"
-
+#include "ioManager.h"
+#include "log.h"
+#include "PlantIO.h"
+//#include <vector>
 //#include "archives.h"
 
-#define MOISTURECHANNEL 5
-#define TEMPERATURECHANNEL 6
-#define MOISTURELIMIT 300
-#define DRYLIMIT 500
-#define RELAYPIN 2
-#define GLEDPIN 3
-#define YLEDPIN 4
-#define RLEDPIN 5
-#define WATERTIME 20
-
-enum state {
-	wet, moist, dry
-};
-
 using namespace std;
-static volatile int keepRunning = 1;
-void initGPIO();
 
 void intHandler(int signum) {
 	cout << "Caught signal " << signum << endl;
@@ -36,74 +23,70 @@ void intHandler(int signum) {
 }
 
 void initGPIO(){
-	pinMode(RELAYPIN, OUTPUT);      //Relay Control pin.
-        pinMode(RLEDPIN, OUTPUT);      //Relay Control pin.
-        pinMode(YLEDPIN, OUTPUT);      //Relay Control pin.
-        pinMode(GLEDPIN, OUTPUT);      //Relay Control pin.
-        digitalWrite(RELAYPIN, LOW);
-        digitalWrite(GLEDPIN, LOW);
-        digitalWrite(YLEDPIN, LOW);
-        digitalWrite(RLEDPIN, LOW);
+	initLed(GLEDPIN);
+	initLed(YLEDPIN);
+	initLed(RLEDPIN);
 }
 
 int init() {
 	//Dealing signal like ^C
 	signal(SIGINT, intHandler);
-	//Defining port and loop period.
 	wiringPiSetup();	//Initialise the wiringPi Library functions.
-	initGPIO();
-	initMCP3008();
+	initGPIO();		//Init the GPIO used in this project
+	initMCP3008();		//Init the DAC component
 	return 1;
 }
 
-int checkstate() {
+void checkAndSetState(PlantIO* p) {
 	cout << "checking state" << endl;
-	int x = readMCP3008(MOISTURECHANNEL);
+	unsigned int x = readMCP3008(p->getMoistureChannel());
 	cout << "Sensor value is : " << x << endl;
-	if (x <= MOISTURELIMIT) {
-		return wet;
-	} else if (x > MOISTURELIMIT && x <= DRYLIMIT) {
-		return moist;
-	} else if (x > DRYLIMIT) {
-		return dry;
+	if (x <= p->getMoistureLimit()) {
+		p->setState(wet);
+	} else if (x > p->getMoistureLimit() && x <= p->getDryLimit()) {
+		p->setState(moist);
+	} else if (x > p->getDryLimit()) {
+		p->setState(dry);
 	}
-	else return -1;
 }
 
-void activateRelay(int sec) {
-	cout << "activating relay" << endl;
-	digitalWrite(RELAYPIN, HIGH);
-	struct timeval t;
-	t.tv_sec = sec;
-	t.tv_usec = 0;
-	select(0, NULL, NULL, NULL, &t);
-	digitalWrite(RELAYPIN, LOW);
+void waterPlant(PlantIO* p) {
+	time_t current_time,beg_time;
+        time(&beg_time);
+        time(&current_time);
+	unsigned int wateringTime = p->getWaterTime();
+        activateRelay(p->getRelayPin());
+        while (difftime(current_time,beg_time) < wateringTime){
+		blinkSeveral(RLEDPIN,YLEDPIN,GLEDPIN);
+		time(&current_time);
+		}
+	desactivateRelay(p->getRelayPin());
+	turnOn(GLEDPIN); // Plant was poured so green light till the next check.
 }
 
-void work(int st) {
-
-	switch (st) {
+void work(PlantIO* p) {
+	switch (p->getState()) {
 	case wet: {
 		//Light the Green Led
-		digitalWrite(GLEDPIN, HIGH);
-		digitalWrite(YLEDPIN, LOW);
-		digitalWrite(RLEDPIN, LOW);
+		turnOn(GLEDPIN);
+		turnOff(YLEDPIN);
+                turnOff(RLEDPIN);
 		break;
 	}
 	case moist: {
 		//Light the Yellow Led
-		digitalWrite(GLEDPIN, LOW);
-		digitalWrite(YLEDPIN, HIGH);
-		digitalWrite(RLEDPIN, LOW);
+                turnOff(GLEDPIN);
+                turnOn(YLEDPIN);
+                turnOff(RLEDPIN);
 		break;
 	}
 	case dry: {
 		//Light the Red Led
-		digitalWrite(GLEDPIN, LOW);
-		digitalWrite(YLEDPIN, LOW);
-		digitalWrite(RLEDPIN, HIGH);
-		// Use the pump for 20 s
-		activateRelay(WATERTIME);
+                turnOff(GLEDPIN);
+                turnOff(YLEDPIN);
+                turnOn(RLEDPIN);
+		// Use the pump for WATERTIME s
+		waterPlant(p);
 		break;
 	}
 	default:
@@ -112,7 +95,8 @@ void work(int st) {
 }
 
 void log(int state, int temper) {
-	//string filename("~/Documents/moisture_sensor_TML/mcp.dat");
+	//Path for the logFILE
+	string filename("~/Documents/AWPS/awps.data");
 	//Tab to log in a file
 
 	int tab[3];
@@ -137,28 +121,4 @@ int checkTemperature() {
 	//cout << "temper = " << temper << endl;
 	//temper = temper / 1024 * 3.3 * 10;
 	return t;
-}
-
-int main(int argc, char* argv[]) {
-	int cycle(0);
-	if (argc == 2) {
-		cycle = atoi(argv[1]);
-	} else
-		cycle = 3600;
-
-	if (init()) {
-		while (keepRunning) {
-			int st = checkstate();
-			if (st<0)
-			cout << "ERROR on the state process" << endl;
-			int temper = checkTemperature();
-			work(st);
-			log(st,temper);
-			hibernate(cycle);
-		}
-	}
-
-	cout << "End of program ! " << endl;
-	return 0;
-
 }
