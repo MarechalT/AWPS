@@ -1,0 +1,12 @@
+[Unit]
+Description=Automatic Watering Plant System Service
+Adter=network.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5
+ExecStart=/home/pi/Documents/AWPS/awps
+
+[Install]
+WantedBy=multi-user.target
