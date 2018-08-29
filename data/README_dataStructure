@@ -1,0 +1,6 @@
+How to read the data files:
+
+All data files are in the type id.dat
+
+Each line is a new entry respecting the following structure:
+Timestamp PlantName MoistureValue TimestampOfLastWatering

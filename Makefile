@@ -17,11 +17,11 @@ awps.pdf: $(SRC) $(DEPS) Makefile
 clean:
 	rm -f *~ *.o *.bak
 
-mrproper: clean
+mrproper: clean erasedata
 	rm -f awps
 
 erasedata:
-	rm -f data/*
+	rm -f data/*.dat
 
 depend:
 	makedepend $(sources)

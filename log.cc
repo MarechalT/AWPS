@@ -33,10 +33,10 @@ void log(PlantIO* p){
         stringstream ss;
 	struct timeval tod;
         gettimeofday(&tod, NULL);
-	ss << tod.tv_sec << " " << p->getName() << " " << p->getId() << " " << p->getMoistureValue()  << " " << p->getLastWaterTime() << endl;
+	ss << tod.tv_sec << " " << p->getName() << " " << p->getMoistureValue()  << " " << p->getLastWaterTime() << endl;
 
 	string fileName = "/home/pi/Documents/AWPS/data/";
-	string plantName = p->getName();
+	string plantName = p->getid();
 	fileName += plantName + ".dat";
 	saveInFile(fileName, ss);
 }
