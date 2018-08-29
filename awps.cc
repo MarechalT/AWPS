@@ -3,7 +3,7 @@
 #include <iostream>
 #include <unistd.h>	//select()
 //#include <sys/select.h>
-#include <sys/time.h>	//gettimeofday()
+//#include <sys/time.h>	//gettimeofday()
 #include <string>
 #include <signal.h>	//Unix signals
 #include "mcp3008Reading.h"
@@ -38,30 +38,29 @@ int init() {
 }
 
 void checkAndSetState(PlantIO* p) {
-	cout << "checking state" << endl;
 	unsigned int x = readMCP3008(p->getMoistureChannel());
-	cout << "Sensor value is : " << x << endl;
-	if (x <= p->getMoistureLimit()) {
-		p->setState(wet);
-	} else if (x > p->getMoistureLimit() && x <= p->getDryLimit()) {
-		p->setState(moist);
-	} else if (x > p->getDryLimit()) {
-		p->setState(dry);
-	}
+	p->setMoistureValue(x);
 }
 
 void waterPlant(PlantIO* p) {
 	time_t current_time,beg_time;
-        time(&beg_time);
         time(&current_time);
-	unsigned int wateringTime = p->getWaterTime();
-        activateRelay(p->getRelayPin());
-        while (difftime(current_time,beg_time) < wateringTime){
-		blinkSeveral(RLEDPIN,YLEDPIN,GLEDPIN);
-		time(&current_time);
-		}
-	desactivateRelay(p->getRelayPin());
-	turnOn(GLEDPIN); // Plant was poured so green light till the next check.
+
+	if(difftime(current_time,p->getLastWaterTime()) > p->getMinTimeBetweenWatering()){
+        	time(&beg_time);
+		unsigned int wateringTime = p->getWaterTime();
+       		activateRelay(p->getRelayPin());
+        	while (difftime(current_time,beg_time) < wateringTime){
+			blinkSeveral(RLEDPIN,YLEDPIN,GLEDPIN);
+			time(&current_time);
+			}
+		desactivateRelay(p->getRelayPin());
+		turnOn(GLEDPIN); // Plant was poured so green light till the next check.
+		p->setLastWaterTime(current_time);
+	}
+	else{
+	cout << "The plant was watered not long ago ... still waiting " << p->getMinTimeBetweenWatering() - difftime(current_time,p->getLastWaterTime()) << "s" << endl;
+	}
 }
 
 void work(PlantIO* p) {
@@ -92,21 +91,6 @@ void work(PlantIO* p) {
 	default:
 		cout << "ERROR switch reached default case " << endl;
 	}
-}
-
-void log(int state, int temper) {
-	//Path for the logFILE
-	string filename("~/Documents/AWPS/awps.data");
-	//Tab to log in a file
-
-	int tab[3];
-	struct timeval tod;
-	gettimeofday(&tod, NULL);
-	tab[0] = tod.tv_sec;
-	tab[1] = state;
-	tab[2] = temper;
-	cout << "time : " << tab[0] << ", state is: " << tab[1] << ", and T° is : " << tab[2] << " °C" << endl;
-	//      saveInFile(filename, tab,(unsigned int)( sizeof(tab)/sizeof(*tab) ));
 }
 
 void hibernate(int s) {

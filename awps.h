@@ -10,18 +10,12 @@
 #define YLEDPIN 4
 #define RLEDPIN 5
 
-//Different states for the state machine
-enum state {
-	wet, moist, dry
-};
-
 void initGPIO();
 void intHandler(int signum);
 int init();
 void checkAndSetState(PlantIO*);
 void waterPlant(PlantIO* p);
 void work(PlantIO* p);
-void log(int state, int temper);
 void hibernate(int s);
 int checkTemperature();
 

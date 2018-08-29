@@ -2,22 +2,41 @@
 #include "log.h"
 #include <fstream>
 #include <iostream>
-//using namespace std;
+#include <sstream>
+#include <sys/time.h> //gettimeofday()
+using namespace std;
 
-int saveInFile(std::string filename, int* tab, unsigned int tabSize){
+int saveInFile(std::string filename, stringstream& ss){
 	std::fstream file;
         file.open(filename.c_str(),std::fstream::out | std::ios::app);
 
         if (file.is_open()){
-                for(unsigned int i=0; i < tabSize - 1;i++){
-                file << tab[i] << " ";}
-                file << tab[tabSize-1];
-                file << std::endl;
+		file << ss.rdbuf();
                 file.close();
         }
         else {
-                std::cerr << "Unable to open the file " << filename << std::endl;
+		file.open(filename.c_str(),std::fstream::out | std::ios::trunc);
+		if (file.is_open()){
+  	        	file << ss.rdbuf();
+                	file.close();
+        	}
+		else{
+		std::cerr << "Unable to open the file " << filename << std::endl;
                 return -1;
+		}
         }
         return 0;
+}
+
+void log(PlantIO* p){
+
+        stringstream ss;
+	struct timeval tod;
+        gettimeofday(&tod, NULL);
+	ss << tod.tv_sec << " " << p->getName() << " " << p->getMoistureValue()  << " " << p->getLastWaterTime() << endl;
+
+	string fileName = "/home/pi/Documents/AWPS/data/";
+	string plantName = p->getName();
+	fileName += plantName + ".dat";
+	saveInFile(fileName, ss);
 }

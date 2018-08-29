@@ -1,4 +1,5 @@
 #include "awps.h"
+#include "log.h"
 #include <cstdlib>	//atoi()
 #include <iostream>
 static volatile int keepRunning = 1;
@@ -8,7 +9,7 @@ int main(int argc, char* argv[]) {
         if (argc == 2) {
                 cycle = atoi(argv[1]);
         } else
-                cycle = 86400;
+                cycle = 3600;
 
         if (init()) {
       PlantIO* basil = new PlantIO("basil",2,150,450,5,8,cycle);
@@ -22,11 +23,10 @@ int main(int argc, char* argv[]) {
                         std::cout << "ERROR on the state process" << std::endl;
                         int temper = checkTemperature();
                         work(basil);
-                        std::cout << "name = " << basil->getName() << std::endl;
+			log(basil);
                         hibernate(basil->getCycleTime());
                 }
         }
-
 	std::cout << "End of program ! " << std::endl;
         return 0;
 

@@ -1,4 +1,4 @@
-CXXFLAGS=-Wall #Define CXXFLAGS to automatically add them in the command
+CXXFLAGS=-Wall -g #Define CXXFLAGS to automatically add them in the command -g for Valgrind use
 
 SRC=$(wildcard *.cc)
 DEPS=$(wildcard *.h)
@@ -19,6 +19,9 @@ clean:
 
 mrproper: clean
 	rm -f awps
+
+erasedata:
+	rm -f data/*
 
 depend:
 	makedepend $(sources)
