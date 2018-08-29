@@ -36,7 +36,7 @@ void log(PlantIO* p){
 	ss << tod.tv_sec << " " << p->getName() << " " << p->getMoistureValue()  << " " << p->getLastWaterTime() << endl;
 
 	string fileName = "/home/pi/Documents/AWPS/data/";
-	string plantName = p->getid();
-	fileName += plantName + ".dat";
+	unsigned int plantId = p->getId();
+	fileName += to_string(plantId) + ".dat";
 	saveInFile(fileName, ss);
 }
