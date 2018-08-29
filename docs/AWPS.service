@@ -3,10 +3,12 @@ Description=Automatic Watering Plant System Service
 Adter=network.target
 
 [Service]
+User=pi
+Group=pi
 Type=simple
 Restart=always
 RestartSec=5
-ExecStart=/home/pi/Documents/AWPS/awps
+ExecStart=/home/pi/Documents/AWPS/bin/awps
 
 [Install]
 WantedBy=multi-user.target

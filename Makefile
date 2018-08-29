@@ -3,11 +3,12 @@ CXXFLAGS=-Wall -g #Define CXXFLAGS to automatically add them in the command -g f
 SRC=$(wildcard *.cc)
 DEPS=$(wildcard *.h)
 LDFLAGS=-lwiringPi
+OUTPUT=bin/
 OBJ=$(SRC:.cc=.o)
 
 # Redefine the default command to create executable without suffix (use g++ instead of gcc)
 awps: $(OBJ)
-	g++ $(LDFLAGS) -o $@ $^
+	g++ $(LDFLAGS) -o $(OUTPUT)$@ $^
 
 all: awps awps.pdf
 
@@ -16,9 +17,9 @@ awps.pdf: $(SRC) $(DEPS) Makefile
 
 clean:
 	rm -f *~ *.o *.bak
+	find bin/ -type f -executable -exec rm '{}' \;
 
 mrproper: clean erasedata
-	rm -f awps
 
 erasedata:
 	rm -f data/*.dat
