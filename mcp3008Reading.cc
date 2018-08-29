@@ -11,8 +11,6 @@ int initMCP3008(){
 }
 
 int readMCP3008(int channel){
-//	wiringPiSetup();
-//	mcp3004Setup(BASE, SPI_CHAN) ;
 	int value = analogRead(BASE+channel);
 	return value;
 }

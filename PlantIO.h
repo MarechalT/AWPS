@@ -10,6 +10,8 @@ enum state {
 
 class PlantIO{
 
+	static unsigned int maxId;
+	const unsigned int id;
 	std::string name;
 	unsigned int relayPin;
 	unsigned int moistureLimit;
@@ -25,6 +27,8 @@ class PlantIO{
 public:
 
 PlantIO(std::string,unsigned int,unsigned int, unsigned int, unsigned int, unsigned int = 8, unsigned int = 3600, double = 86400);
+
+const unsigned int getId();
 std::string getName();
 unsigned int getRelayPin();
 unsigned int getMoistureLimit();

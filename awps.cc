@@ -1,17 +1,16 @@
 #include "awps.h"
-#include <wiringPi.h>
 #include <iostream>
-#include <unistd.h>	//select()
-//#include <sys/select.h>
-//#include <sys/time.h>	//gettimeofday()
 #include <string>
+#include <vector>
+#include <unistd.h>	//select()
 #include <signal.h>	//Unix signals
+
+#include <wiringPi.h>
+
 #include "mcp3008Reading.h"
 #include "ioManager.h"
 #include "log.h"
 #include "PlantIO.h"
-//#include <vector>
-//#include "archives.h"
 
 using namespace std;
 
@@ -105,4 +104,16 @@ int checkTemperature() {
 	//cout << "temper = " << temper << endl;
 	//temper = temper / 1024 * 3.3 * 10;
 	return t;
+}
+
+void awps(vector<PlantIO*> plantGroup){
+	int temper = checkTemperature();
+        for (std::vector<PlantIO*>::iterator it = plantGroup.begin();it != plantGroup.end();++it){
+        	checkAndSetState(*it);
+                if ((*it)->getState()<0)
+                	std::cout << "ERROR on the state process" << std::endl;
+                work(*it);
+                log(*it);
+        }
+        hibernate((plantGroup[0])->getCycleTime());
 }

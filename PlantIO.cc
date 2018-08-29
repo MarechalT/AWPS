@@ -4,7 +4,9 @@
 #include <iostream>
 #include <string>
 
-PlantIO::PlantIO(std::string n, unsigned int rp,unsigned int ml, unsigned int dl, unsigned int mc, unsigned int wt, unsigned int ct, double mtbw){
+unsigned int PlantIO::maxId = 0;
+
+PlantIO::PlantIO(std::string n, unsigned int rp,unsigned int ml, unsigned int dl, unsigned int mc, unsigned int wt, unsigned int ct, double mtbw) : id(maxId++){
         name = n;
         relayPin=rp;
         moistureLimit=ml;
@@ -19,6 +21,10 @@ PlantIO::PlantIO(std::string n, unsigned int rp,unsigned int ml, unsigned int dl
 	minTimeBetweenWatering = mtbw;
 }
 
+
+const unsigned int PlantIO::getId(){
+return id;
+}
 
 std::string PlantIO::getName(){
 	return name;

@@ -1,9 +1,9 @@
-
 #include "log.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <sys/time.h> //gettimeofday()
+
 using namespace std;
 
 int saveInFile(std::string filename, stringstream& ss){
@@ -33,7 +33,7 @@ void log(PlantIO* p){
         stringstream ss;
 	struct timeval tod;
         gettimeofday(&tod, NULL);
-	ss << tod.tv_sec << " " << p->getName() << " " << p->getMoistureValue()  << " " << p->getLastWaterTime() << endl;
+	ss << tod.tv_sec << " " << p->getName() << " " << p->getId() << " " << p->getMoistureValue()  << " " << p->getLastWaterTime() << endl;
 
 	string fileName = "/home/pi/Documents/AWPS/data/";
 	string plantName = p->getName();

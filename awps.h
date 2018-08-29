@@ -1,7 +1,7 @@
 #ifndef AWPS_H
 #define AWPS_H
 
-
+#include <vector>
 #include "PlantIO.h"
 
 //Defining the pin used and parameters -> Transfer this in a config file?
@@ -18,5 +18,5 @@ void waterPlant(PlantIO* p);
 void work(PlantIO* p);
 void hibernate(int s);
 int checkTemperature();
-
+void awps(std::vector<PlantIO*>);
 #endif

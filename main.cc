@@ -1,33 +1,30 @@
 #include "awps.h"
-#include "log.h"
 #include <cstdlib>	//atoi()
 #include <iostream>
+#include <vector>
+
 static volatile int keepRunning = 1;
 
 int main(int argc, char* argv[]) {
-   	int cycle(0);
+//	Defining Argument possibility to change the cycle
+	int cycle(0);
         if (argc == 2) {
                 cycle = atoi(argv[1]);
         } else
                 cycle = 3600;
 
         if (init()) {
-      PlantIO* basil = new PlantIO("basil",2,150,450,5,8,cycle);
-        //todo Loop on all plants.
-        //vector<PlantIO> plantGroup;
-        //plantGroup.push_back(basil);
-                while (keepRunning) {
+	//Defining the list of plant to follow and their parameters (todo move to a cfg file)
+	std::vector<PlantIO*> plantGroup;
+	PlantIO* basil = new PlantIO("basil",2,150,450,5,8,cycle);
+	PlantIO* kolendra = new PlantIO("kolendra",6,200,500,4,cycle);
+	plantGroup.push_back(basil);
+	plantGroup.push_back(kolendra);
 
-                        checkAndSetState(basil);
-                        if (basil->getState()<0)
-                        std::cout << "ERROR on the state process" << std::endl;
-                        int temper = checkTemperature();
-                        work(basil);
-			log(basil);
-                        hibernate(basil->getCycleTime());
+                while (keepRunning) {
+			awps(plantGroup);
                 }
         }
 	std::cout << "End of program ! " << std::endl;
         return 0;
-
 }
