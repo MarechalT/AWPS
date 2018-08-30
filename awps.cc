@@ -4,7 +4,7 @@
 #include <vector>
 #include <unistd.h>	//select()
 #include <signal.h>	//Unix signals
-
+#include <thread>
 #include <wiringPi.h>
 
 #include "mcp3008Reading.h"
@@ -13,6 +13,9 @@
 #include "PlantIO.h"
 
 using namespace std;
+
+static volatile int keepRunning = 1;
+
 
 void intHandler(int signum) {
 	cout << "Caught signal " << signum << endl;
@@ -106,14 +109,28 @@ int checkTemperature() {
 	return t;
 }
 
+int checkLight() {
+	double l = readMCP3008(LIGHTCHANNEL);
+	return l;
+}
+
+void process(PlantIO* p){
+	while(keepRunning){
+		checkAndSetState(p);
+        	if ((p)->getState()<0)
+        	        std::cout << "ERROR on the state process" << std::endl;
+        	work(p);
+        	log(p);
+		hibernate(p->getCycleTime());
+	}
+}
+
 void awps(vector<PlantIO*> plantGroup){
-	int temper = checkTemperature();
-        for (std::vector<PlantIO*>::iterator it = plantGroup.begin();it != plantGroup.end();++it){
-        	checkAndSetState(*it);
-                if ((*it)->getState()<0)
-                	std::cout << "ERROR on the state process" << std::endl;
-                work(*it);
-                log(*it);
-        }
-        hibernate((plantGroup[0])->getCycleTime());
+	//Create a thread for each plant in order to 'consult' each of them as often as it is specified in the config of each plant
+	vector<thread> threads;
+       	for (std::vector<PlantIO*>::iterator it = plantGroup.begin();it != plantGroup.end();++it){
+		string s = "Thread " + to_string(std::distance(plantGroup.begin(),it));
+                thread(process,*it).detach();
+	}
+	while(keepRunning);
 }

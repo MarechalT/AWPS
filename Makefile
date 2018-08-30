@@ -1,8 +1,8 @@
-CXXFLAGS=-Wall -g #Define CXXFLAGS to automatically add them in the command -g for Valgrind use
+CXXFLAGS=-Wall -g -std=c++11 #Define CXXFLAGS to automatically add them in the command -g for Valgrind use
 
 SRC=$(wildcard *.cc)
 DEPS=$(wildcard *.h)
-LDFLAGS=-lwiringPi
+LDFLAGS=-lwiringPi -lpthread
 OUTPUT=bin/
 OBJ=$(SRC:.cc=.o)
 
