@@ -2,9 +2,9 @@
 #define LOG_H
 
 #include <string>
-#include "PlantIO.h"
+#include <sstream>
 
-int saveInFile(std::string, int*, unsigned int);
-void log(PlantIO*);
+extern const std::string dataPath;
+int saveInFile(std::string, std::string);
 
 #endif

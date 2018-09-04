@@ -1,4 +1,3 @@
-#include "awps.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -7,61 +6,80 @@
 #include <thread>
 #include <wiringPi.h>
 
+#include "awps.h"
 #include "mcp3008Reading.h"
 #include "ioManager.h"
 #include "log.h"
-#include "PlantIO.h"
+#include "ServiceTime.h"
 
 using namespace std;
 
-static volatile int keepRunning = 1;
-
+const static volatile int keepRunning = 1;
 
 void intHandler(int signum) {
 	cout << "Caught signal " << signum << endl;
 	cout << "Shutting down the AWPS software" << endl;
-	initGPIO();
+	initLEDGPIO();
 	exit(signum);
 }
 
-void initGPIO(){
-	initLed(GLEDPIN);
-	initLed(YLEDPIN);
-	initLed(RLEDPIN);
+void initLEDGPIO() {
+	OutputInit(GLEDPIN);
+	OutputInit(YLEDPIN);
+	OutputInit(RLEDPIN);
 }
 
 int init() {
-	//Dealing signal like ^C
-	signal(SIGINT, intHandler);
+	signal(SIGINT, intHandler);	//Dealing signal like ^C
 	wiringPiSetup();	//Initialise the wiringPi Library functions.
-	initGPIO();		//Init the GPIO used in this project
-	initMCP3008();		//Init the DAC component
+	initLEDGPIO();		//Init the GPIO used in this project
+	initMCP3008();		//Init the ADC component
 	return 1;
 }
 
-void checkAndSetState(PlantIO* p) {
+void update(PlantIO* p) {
 	unsigned int x = readMCP3008(p->getMoistureChannel());
 	p->setMoistureValue(x);
+	p->setState(p->getMoistureValue());
+}
+
+void update(RoomIO* r){
+	r->setTemperature(checkTemperature(r->getTemperatureChannel()));
+	r->setLight(checkLight(r->getLightChannel()));
+}
+
+int checkTemperature(int channel) {
+	double temper = readMCP3008(channel);
+	temper = (temper / 1024 * 3.3 * 100) - 273.15;
+	return temper;
+}
+
+int checkLight(int channel) {
+	double light = readMCP3008(channel);
+	//Todo Calibration of the sensor
+	return light;
+}
+bool isWaterPlantPossible(PlantIO* p) {
+
+	if (difftime(getCurrentTime(), p->getLastWaterTime()) > p->getMinTimeBetweenWatering())
+		return true;
+	else {
+		cout << "Watering impossible: The plant was watered not long ago ... still waiting "
+				<< p->getMinTimeBetweenWatering() - difftime(getCurrentTime(), p->getLastWaterTime()) << "s" << endl;
+	}
+	return false;
+}
+void water(unsigned int pin, unsigned int sec) {
+	OutputHighSec(pin, sec, actionNotify);
+	OutputHigh (GLEDPIN); // Plant was poured so green light till the next check.
 }
 
 void waterPlant(PlantIO* p) {
-	time_t current_time,beg_time;
-        time(&current_time);
-
-	if(difftime(current_time,p->getLastWaterTime()) > p->getMinTimeBetweenWatering()){
-        	time(&beg_time);
-		unsigned int wateringTime = p->getWaterTime();
-       		activateRelay(p->getRelayPin());
-        	while (difftime(current_time,beg_time) < wateringTime){
-			blinkSeveral(RLEDPIN,YLEDPIN,GLEDPIN);
-			time(&current_time);
-			}
-		desactivateRelay(p->getRelayPin());
-		turnOn(GLEDPIN); // Plant was poured so green light till the next check.
-		p->setLastWaterTime(current_time);
-	}
-	else{
-	cout << "The plant was watered not long ago ... still waiting " << p->getMinTimeBetweenWatering() - difftime(current_time,p->getLastWaterTime()) << "s" << endl;
+	if (isWaterPlantPossible(p)) {
+		water(p->getRelayPin(), p->getWaterTime());
+		p->setLastWaterTime(getCurrentTime());
+	} else {
+		cout << "Watering Plant impossible" << endl;
 	}
 }
 
@@ -69,23 +87,23 @@ void work(PlantIO* p) {
 	switch (p->getState()) {
 	case wet: {
 		//Light the Green Led
-		turnOn(GLEDPIN);
-		turnOff(YLEDPIN);
-                turnOff(RLEDPIN);
+		OutputHigh(GLEDPIN);
+		OutputLow(YLEDPIN);
+		OutputLow(RLEDPIN);
 		break;
 	}
 	case moist: {
 		//Light the Yellow Led
-                turnOff(GLEDPIN);
-                turnOn(YLEDPIN);
-                turnOff(RLEDPIN);
+		OutputLow(GLEDPIN);
+		OutputHigh(YLEDPIN);
+		OutputLow(RLEDPIN);
 		break;
 	}
 	case dry: {
 		//Light the Red Led
-                turnOff(GLEDPIN);
-                turnOff(YLEDPIN);
-                turnOn(RLEDPIN);
+		OutputLow(GLEDPIN);
+		OutputLow(YLEDPIN);
+		OutputHigh(RLEDPIN);
 		// Use the pump for WATERTIME s
 		waterPlant(p);
 		break;
@@ -102,35 +120,29 @@ void hibernate(int s) {
 	select(0, NULL, NULL, NULL, &t);
 }
 
-int checkTemperature() {
-	double t = readMCP3008(TEMPERATURECHANNEL);
-	//cout << "temper = " << temper << endl;
-	//temper = temper / 1024 * 3.3 * 10;
-	return t;
-}
-
-int checkLight() {
-	double l = readMCP3008(LIGHTCHANNEL);
-	return l;
-}
-
-void process(PlantIO* p){
-	while(keepRunning){
-		checkAndSetState(p);
-        	if ((p)->getState()<0)
-        	        std::cout << "ERROR on the state process" << std::endl;
-        	work(p);
-        	log(p);
+void processP(PlantIO* p) {
+	while (keepRunning) {
+		update(p);
+		work(p);
+		saveInFile("P_" + p->getId(), p->log());
 		hibernate(p->getCycleTime());
 	}
 }
 
-void awps(vector<PlantIO*> plantGroup){
-	//Create a thread for each plant in order to 'consult' each of them as often as it is specified in the config of each plant
-	vector<thread> threads;
-       	for (std::vector<PlantIO*>::iterator it = plantGroup.begin();it != plantGroup.end();++it){
-		string s = "Thread " + to_string(std::distance(plantGroup.begin(),it));
-                thread(process,*it).detach();
+void processR(RoomIO* r) {
+	while (keepRunning) {
+		update(r);
+		saveInFile("R_" + r->getId(), r->log());
+		hibernate(r->getCycleTime());
 	}
+}
+
+void awps(vector<PlantIO*> plantGroup, vector<RoomIO*> roomGroup) {
+	//Create a thread for each plant in order to 'consult' each of them as often as it is specified in the config of each plant
+	for (std::vector<PlantIO*>::iterator it = plantGroup.begin();it != plantGroup.end();++it){
+		thread(processP,*it).detach();}
+	for (std::vector<RoomIO*>::iterator ite = roomGroup.begin();ite != roomGroup.end();++ite){
+		thread(processR,*ite).detach();}
+
 	while(keepRunning);
 }

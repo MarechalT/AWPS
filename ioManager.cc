@@ -1,53 +1,58 @@
 #include "ioManager.h"
 #include <wiringPi.h>
-#include <ctime>
-
-void initRelay(int pin){
+#include "ServiceTime.h"
+#include "awps.h"
+void OutputInit(int pin) {
 	pinMode(pin, OUTPUT);
-        digitalWrite(pin, LOW);
-}
-
-void activateRelay(int pin){
-        digitalWrite(pin, HIGH);
-}
-
-void desactivateRelay(int pin){
-        digitalWrite(pin, LOW);
-}
-
-void initLed(int pin){
-	pinMode(pin, OUTPUT); 
 	digitalWrite(pin, LOW);
 }
-void turnOn(int pin){
+
+void OutputHigh(int pin) {
 	digitalWrite(pin, HIGH);
 }
 
-void turnOff(int pin){
-        digitalWrite(pin, LOW);
+void OutputHighSec(int pin, unsigned int sec, void (*f)()) {
+	time_t beg_time;
+	time(&beg_time);
+	OutputHigh(pin);
+	while (difftime(getCurrentTime(), beg_time) < sec) {
+		(*f)();
+	}
+	OutputLow(pin);
+}
+void OutputLow(int pin) {
+	digitalWrite(pin, LOW);
 }
 
-void blink(int pin, int timer){
-	time_t current_time,beg_time;
+void InputInit(int pin) {
+	pinMode(pin, INPUT);
+}
+
+void InputRead(int pin) {
+	digitalRead(pin);
+}
+
+void blink(int pin, int timer) {
+	time_t beg_time;
 	time(&beg_time);
-	time(&current_time);
-	while (difftime(current_time,beg_time) < timer){
-		digitalWrite (pin, HIGH) ;  // On
-		delay (500) ;               // mS
-		digitalWrite (pin, LOW) ;   // Off
-		delay (500) ;
-		time(&current_time);
+	while (difftime(getCurrentTime(), beg_time) < timer) {
+		OutputHigh(pin);  // On
+		delay(500);               // mS
+		OutputLow(pin);   // Off
+		delay(500);
 	}
 }
-
-void blinkSeveral(int pin1, int pin2, int pin3){
-	turnOn(pin1);
-        delay(100) ;               // mS
-	turnOff(pin1);
-	turnOn(pin2);
+void blinkSeveral(int pin1, int pin2, int pin3) {
+	OutputHigh(pin1);
+	delay(100);               // mS
+	OutputLow(pin1);
+	OutputHigh(pin2);
 	delay(100);
-	turnOff(pin2);
-	turnOn(pin3);
-	delay(100) ;
-	turnOff(pin3);
+	OutputLow(pin2);
+	OutputHigh(pin3);
+	delay(100);
+	OutputLow(pin3);
+}
+void actionNotify() {
+	blinkSeveral(RLEDPIN, YLEDPIN, GLEDPIN);
 }
