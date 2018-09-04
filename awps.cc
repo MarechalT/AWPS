@@ -1,7 +1,6 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <unistd.h>	//select()
 #include <signal.h>	//Unix signals
 #include <thread>
 #include <wiringPi.h>
@@ -113,18 +112,11 @@ void work(PlantIO* p) {
 	}
 }
 
-void hibernate(int s) {
-	struct timeval t;
-	t.tv_sec = s;
-	t.tv_usec = 0;
-	select(0, NULL, NULL, NULL, &t);
-}
-
 void processP(PlantIO* p) {
 	while (keepRunning) {
 		update(p);
 		work(p);
-		saveInFile("P_" + p->getId(), p->log());
+		saveInFile("P_" + to_string(p->getId()) + ".dat", p->log());
 		hibernate(p->getCycleTime());
 	}
 }
@@ -132,7 +124,8 @@ void processP(PlantIO* p) {
 void processR(RoomIO* r) {
 	while (keepRunning) {
 		update(r);
-		saveInFile("R_" + r->getId(), r->log());
+
+		saveInFile("R_" + to_string(r->getId()) + ".dat", r->log());
 		hibernate(r->getCycleTime());
 	}
 }

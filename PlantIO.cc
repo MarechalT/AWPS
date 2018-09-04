@@ -14,6 +14,7 @@ PlantIO::PlantIO(std::string n, unsigned int rp, unsigned int mwp, unsigned int 
 
 	moistureValueQuantity = 5;
 	moistureValue = new unsigned int[moistureValueQuantity];
+	initIO();
 }
 
 const unsigned int PlantIO::getId() {

@@ -4,5 +4,6 @@
 #include <ctime>
 
 time_t getCurrentTime();
+void hibernate(int);
 
 #endif

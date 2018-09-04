@@ -6,7 +6,7 @@
 #include "ServiceTime.h"
 using namespace std;
 
-const string dataPath = "/home/pi/Documents/AWPS/data";
+const string dataPath = "/home/pi/Documents/AWPS/data/";
 
 int saveInFile(std::string fileName, string s) {
 	std::fstream file;
